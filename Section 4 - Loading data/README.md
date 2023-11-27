@@ -192,3 +192,163 @@ COPY INTO EXERCISE_DB.PUBLIC.CUSTOMERS
 // File1: customers2.csv LOADED status 750 rows loaded
 // File2: customer3.csv LOADED status 850 rows loaded
 ```
+
+### Transforming Data
+
+```sql
+// Transforming using the SELECT statement
+COPY INTO OUR_FIRST_DB.PUBLIC.ORDERS_EX
+    // stage name is given an alias s
+    // alias displays that column 1 is coming from external stage s, for example
+    // use the dollar symbol to refer to the column number
+    // column 1 is Order ID, column 2 is Amount
+    FROM (select s.$1, s.$2 from @MANAGE_DB.external_stages.aws_stage s)
+    file_format= (type = csv field_delimiter=',' skip_header=1)
+    files=('OrderDetails.csv');
+
+
+
+// Example 1 - Table
+
+CREATE OR REPLACE TABLE OUR_FIRST_DB.PUBLIC.ORDERS_EX (
+    ORDER_ID VARCHAR(30),
+    AMOUNT INT
+    )
+
+
+SELECT * FROM OUR_FIRST_DB.PUBLIC.ORDERS_EX;
+
+// Example 2 - Table    
+
+CREATE OR REPLACE TABLE OUR_FIRST_DB.PUBLIC.ORDERS_EX (
+    ORDER_ID VARCHAR(30),
+    AMOUNT INT,
+    PROFIT INT,
+    PROFITABLE_FLAG VARCHAR(30)
+
+    )
+
+
+// Example 2 - Copy Command using a SQL function (subset of functions available) - Transformation
+// Supported SQL functions for COPY transformations listed in the Snowflake documentation
+
+COPY INTO OUR_FIRST_DB.PUBLIC.ORDERS_EX
+    FROM (select
+            s.$1,
+            s.$2,
+            s.$3,
+            // Transform data type using CAST
+            // CAST column 3 from external stage s as int and comparison to 0
+            // CASE to flag as profitable or not profitable
+            CASE WHEN CAST(s.$3 as int) < 0 THEN 'not profitable' ELSE 'profitable' END
+          from @MANAGE_DB.external_stages.aws_stage s)
+    file_format= (type = csv field_delimiter=',' skip_header=1)
+    files=('OrderDetails.csv');
+
+
+SELECT * FROM OUR_FIRST_DB.PUBLIC.ORDERS_EX
+// Profitable flag displays flag for profit as expected
+
+
+// Example 3 - Table
+
+CREATE OR REPLACE TABLE OUR_FIRST_DB.PUBLIC.ORDERS_EX (
+    ORDER_ID VARCHAR(30),
+    AMOUNT INT,
+    PROFIT INT,
+    CATEGORY_SUBSTRING VARCHAR(5)
+
+    )
+
+
+// Example 3 - Copy Command using a SQL function (subset of functions available)
+
+COPY INTO OUR_FIRST_DB.PUBLIC.ORDERS_EX
+    // Use select statement
+    FROM (select
+            s.$1,
+            s.$2,
+            s.$3,
+            // Use a substring instead of complete category name
+            // use substring function, refer to column 5 from external stage s
+            // start from character 1 and length of string is 5, to extract first 5 characters of category string
+            substring(s.$5,1,5)
+          from @MANAGE_DB.external_stages.aws_stage s)
+    file_format= (type = csv field_delimiter=',' skip_header=1)
+    files=('OrderDetails.csv');
+
+
+SELECT * FROM OUR_FIRST_DB.PUBLIC.ORDERS_EX
+// CATEGORY_SUBSTRING column is now substring of 5 characters
+```
+
+### More Transformations
+
+```sql
+//Example 3 - Table
+
+CREATE OR REPLACE TABLE OUR_FIRST_DB.PUBLIC.ORDERS_EX (
+    ORDER_ID VARCHAR(30),
+    AMOUNT INT,
+    PROFIT INT,
+    PROFITABLE_FLAG VARCHAR(30)
+
+    )
+
+
+
+//Example 4 - Using subset of columns
+// Created table from Example 3 has 4 columns
+// We do not need to write data in all coliumns available in the table, in this example, we only use 2 columns meaning the other 2 columns remain empty
+
+// Use brackets after table name specifying ORDER_ID, PROFIT columns required
+COPY INTO OUR_FIRST_DB.PUBLIC.ORDERS_EX (ORDER_ID,PROFIT)
+    // Copying data into specified two columns
+    FROM (select
+            s.$1,
+            s.$3
+          from @MANAGE_DB.external_stages.aws_stage s)
+    file_format= (type = csv field_delimiter=',' skip_header=1)
+    files=('OrderDetails.csv');
+
+SELECT * FROM OUR_FIRST_DB.PUBLIC.ORDERS_EX;
+// Table created has four columns but only ORDER_ID and PROFIT have data available, whereas other two columns are empty showing NULL
+
+
+
+//Example 5 - Table Auto increment
+
+CREATE OR REPLACE TABLE OUR_FIRST_DB.PUBLIC.ORDERS_EX (
+    // default is autoincrement start 1 increment by 1 for every new row of the table
+    ORDER_ID number autoincrement start 1 increment 1,
+    AMOUNT INT,
+    PROFIT INT,
+    PROFITABLE_FLAG VARCHAR(30)
+
+    )
+
+
+
+//Example 5 - Auto increment ID
+// ORDER_ID is currently B-25601, so we require an auto increment ID column
+
+COPY INTO OUR_FIRST_DB.PUBLIC.ORDERS_EX (PROFIT,AMOUNT)
+    // Select statemnet to copy data into two specified colummns
+    FROM (select
+            s.$2,
+            s.$3
+          from @MANAGE_DB.external_stages.aws_stage s)
+    file_format= (type = csv field_delimiter=',' skip_header=1)
+    files=('OrderDetails.csv');
+
+
+SELECT * FROM OUR_FIRST_DB.PUBLIC.ORDERS_EX;
+// ORDER_ID column is now auto incremented starting at 1
+SELECT * FROM OUR_FIRST_DB.PUBLIC.ORDERS_EX WHERE ORDER_ID > 15;
+// Filter on ORDER_ID using WHERE statement which is useful for when copying specific data into our databases
+
+
+DROP TABLE OUR_FIRST_DB.PUBLIC.ORDERS_EX
+```
+
+### Copy Option: ON_ERROR
