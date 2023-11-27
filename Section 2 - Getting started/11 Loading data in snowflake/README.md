@@ -15,7 +15,7 @@ COMMENT = 'This is a virtual warehouse of size X-SMALL that can be used to proce
 DROP WAREHOUSE EXERCISE_WH;
 ```
 
-Creating a Virtual Data Warehouse
+## Assignment 1: Creating a Virtual Data Warehouse
 
 ```sql
 CREATE OR REPLACE WAREHOUSE COMPUTE_WAREHOUSE
@@ -69,4 +69,77 @@ Use case not well suited for multi-clustering is if more complex queries, in thi
 | Standard (default)   | Prevents/minimizes queuing by favouring starting additional clusters over conserving credits.                                            | The first cluster starts immediately when a query is queued or one more query than running clusters can handle is detected. Successive clusters start 20 seconds after the prior one. | After 2-3 consecutive successful checks (at 1-minute intervals), load redistribution occurs without spinning up the cluster again.                       |
 | Economy              | Conserves credits by favouring keeping running clusters fully-loaded rather than starting additional clusters, resulting in potential query queueing. Result: May result in queries being queued and taking longer to complete. | Starts only if the system estimates enough query load for at least 6 minutes. After 5-6 consecutive successful checks (at 1-minute intervals), load redistribution occurs without spinning up the cluster again.|After 5 to 6 consecutive successful checks (performed at 1 minute intervals), which determine whether the load on the least-loaded cluster could be redistributed to the other clusters without spinning up the cluster again.|
 
-### Tables and Databases
+### Loading Data in Snowflake from External Source (S3 Bucket)
+
+
+```sql
+//Rename database & creating the table + metadata
+ALTER DATABASE FIRST_DB RENAME TO OUR_FIRST_DB;
+
+
+
+//Creating the table / Meta data
+CREATE TABLE "OUR_FIRST_DB"."PUBLIC"."LOAN_PAYMENT" (
+  "Loan_ID" STRING,
+  "loan_status" STRING,
+  "Principal" STRING,
+  "terms" STRING,
+  "effective_date" STRING,
+  "due_date" STRING,
+  "paid_off_time" STRING,
+  "past_due_days" STRING,
+  "age" STRING,
+  "education" STRING,
+  "Gender" STRING);
+
+//Check that table is empty
+USE DATABASE OUR_FIRST_DB;
+
+SELECT * FROM LOAN_PAYMENT;
+
+//Loading the data from S3 bucket
+
+COPY INTO LOAN_PAYMENT
+    FROM s3://bucketsnowflakes3/Loan_payments_data.csv
+    file_format = (type = csv
+                   field_delimiter = ','
+                   skip_header=1);
+
+//Validate
+ SELECT * FROM LOAN_PAYMENT;
+ ```
+
+ ## Assignment 2: Load data
+
+```sql
+//Create database
+CREATE OR REPLACE DATABASE EXERCISE_DB;
+
+//Creating the table / Meta data
+//Database Name, Schema PUBLIC, Table Name
+CREATE OR REPLACE TABLE "EXERCISE_DB"."PUBLIC"."CUSTOMERS" (
+  "customer_ID" INT,
+  "first_name" VARCHAR,
+  "last_name" VARCHAR,
+  "email" VARCHAR,
+  "age" INT,
+  "city" VARCHAR);
+
+//Check that table is empty
+USE EXERCISE_DB
+
+//Check empty table
+SELECT * FROM CUSTOMERS;
+
+//Loading the data from S3 bucket
+COPY INTO CUSTOMERS
+    FROM s3://snowflake-assignments-mc/gettingstarted/customers.csv
+    file_format = (type = csv
+                   // Data type: CSV - delimited by ',' (comma)
+                   field_delimiter = ','
+                   // Header is in the first line
+                   skip_header=1);
+
+//Validate
+SELECT * FROM CUSTOMERS;
+```
